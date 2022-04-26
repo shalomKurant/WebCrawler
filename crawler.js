@@ -9,8 +9,14 @@ const scanPage = async (url, depth = 0, maxDepth = 3) => {
     if (!isUrlValid(url) || seemsPages[url]) return;
     
     seemsPages[url] = true;
-    const response = await axios(url);
-    const htmlContent = cheerio.load(response.data);
+    let htmlContent;
+    try {
+        const response = await axios(url);
+        htmlContent = cheerio.load(response.data);
+    } catch (error) {
+        console.error(error);
+        return;
+    }
     const links = [];
 
     htmlContent("img").map((i, img) => {
@@ -23,21 +29,18 @@ const scanPage = async (url, depth = 0, maxDepth = 3) => {
     });
 
     htmlContent("a").map((i, link) => {
-        if (link.attribs && link.attribs.href) {
+        if (link.attribs && isUrlValid(link.attribs.href)) {
             links.push(link.attribs.href);
         }
     });
 
     if (depth <= maxDepth) {
         for (const link of links) {
-            await scanPage(link, depth++);
+            depth++;
+            await scanPage(link, depth);
         }
     }
       
-}
-
-const writeToFile = (images) => {
-    fs.writeFile('results.json', JSON.stringify(images), 'utf8', () => {});
 }
 
 const crawle = async () => {
@@ -47,6 +50,10 @@ const crawle = async () => {
     await scanPage(baseUrl, depthLevel);
     writeToFile(images);    
 };
+
+const writeToFile = (images) => {
+    fs.writeFile('results.json', JSON.stringify(images), 'utf8', () => {});
+}
 
 const isUrlValid = (url) => {
     return url && url.includes("http"); 
